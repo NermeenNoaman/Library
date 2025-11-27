@@ -1,0 +1,17 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model book {
+  book_id Int    @id @default(autoincrement())
+  isbn    String @db.VarChar(13)
+  // ...
+}
