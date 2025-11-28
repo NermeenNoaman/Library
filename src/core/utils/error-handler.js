@@ -1,19 +1,28 @@
 
-// Express distinguishes error handlers by having 4 selectors: (err, req, res, next)
+const { ZodError } = require('zod');
+
 const globalErrorHandler = (err, req, res, next) => {
-// Displaying the error in the console for developers
-    console.error(err);
+    console.error(" Error Details:", JSON.stringify(err, null, 2));
 
-// Determine the error status (Status Code)
-    const status = err.status || 500;
-    const message = err.message || 'An unexpected error occurred.';
+    let status = err.status || 500;
+    let message = err.message || 'An unexpected error occurred.';
 
-// Returns a unified response (JSON Response)
+
+    if (err instanceof ZodError) {
+        status = 400; 
+        const issues = err.errors || err.issues; 
+
+        if (issues && issues.length > 0) {
+            message = issues[0].message;
+        } else {
+            message = "Validation failed (Check console for details)";
+        }
+    }
+
+
     return res.status(status).json({
         success: false,
         message: message,
-         // Error details can only be added in development mode:
-        // stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
     });
 };
 
