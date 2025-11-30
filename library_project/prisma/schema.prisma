@@ -1,0 +1,259 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  user_id     Int      @id @default(autoincrement())
+  email       String   @unique
+  password    String
+  fullname    String
+  phone       String?
+  role        UserRole
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  Member      Member?
+  Librarian   Librarian?
+  RefreshToken RefreshToken[]
+}
+
+enum UserRole {
+  Member
+  Librarian
+  Admin
+}
+
+model Member {
+  member_id       Int      @id @default(autoincrement())
+  user_id         Int
+  email           String
+  first_name      String
+  last_name       String?
+  phone           String?
+  address         String?
+  date_of_birth   DateTime?
+  registration_date DateTime @default(now())
+  membership_type MembershipType @default(Standard)
+  status          MemberStatus  @default(Active)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  user            User     @relation(fields: [user_id], references: [user_id])
+  reservations    Reservation[]
+  borrowings      Borrowing[]
+  fines           Fine[]
+}
+
+enum MembershipType {
+  Standard
+  Premium
+  Student
+  Senior
+}
+
+enum MemberStatus {
+  Active
+  Inactive
+  Suspended
+  Expired
+}
+
+model Librarian {
+  librarian_id Int @id @default(autoincrement())
+  user_id      Int
+  email        String
+  first_name   String
+  last_name    String?
+  phone        String?
+  role         LibrarianRole @default(Librarian)
+  hire_date    DateTime @default(now())
+  status       LibrarianStatus @default(Active)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  user         User @relation(fields: [user_id], references: [user_id])
+  borrowings   Borrowing[]
+  reports      Report[]
+}
+
+enum LibrarianRole {
+  Admin
+  Librarian
+  Assistant
+}
+
+enum LibrarianStatus {
+  Active
+  Inactive
+  OnLeave
+}
+
+model Author {
+  author_id Int @id @default(autoincrement())
+  first_name String
+  last_name String
+  biography String?
+  date_of_birth DateTime?
+  nationality String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  books Book[]
+}
+
+model Category {
+  category_id Int @id @default(autoincrement())
+  category_name String @unique
+  description String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  books Book[]
+}
+
+model Book {
+  book_id Int @id @default(autoincrement())
+  isbn String @unique
+  title String
+  author_id Int
+  category_id Int
+  publisher String?
+  publication_year Int?
+  total_copies Int @default(1)
+  available_copies Int @default(1)
+  language String? @default("English")
+  pages Int?
+  description String?
+  cover_image String?
+  status BookStatus @default(Available)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  author Author @relation(fields: [author_id], references: [author_id])
+  category Category @relation(fields: [category_id], references: [category_id])
+  reservations Reservation[]
+  borrowings Borrowing[]
+}
+
+enum BookStatus {
+  Available
+  Unavailable
+  Damaged
+  Lost
+}
+
+model Borrowing {
+  borrowing_id Int @id @default(autoincrement())
+  member_id Int
+  book_id Int
+  borrow_date DateTime @default(now())
+  due_date DateTime
+  return_date DateTime?
+  status BorrowingStatus @default(Borrowed)
+  renewed_count Int @default(0)
+  librarian_id Int
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  member Member @relation(fields: [member_id], references: [member_id])
+  book Book @relation(fields: [book_id], references: [book_id])
+  librarian Librarian @relation(fields: [librarian_id], references: [librarian_id])
+  fines Fine[]
+}
+
+enum BorrowingStatus {
+  Borrowed
+  Returned
+  Overdue
+  Lost
+}
+
+model Reservation {
+  reservation_id Int @id @default(autoincrement())
+  member_id Int
+  book_id Int
+  reservation_date DateTime @default(now())
+  expiry_date DateTime
+  status ReservationStatus @default(Active)
+  priority_number Int @default(1)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  member Member @relation(fields: [member_id], references: [member_id])
+  book Book @relation(fields: [book_id], references: [book_id])
+}
+
+enum ReservationStatus {
+  Active
+  Fulfilled
+  Cancelled
+  Expired
+}
+
+model Fine {
+  fine_id Int @id @default(autoincrement())
+  member_id Int
+  borrowing_id Int?
+  fine_amount Decimal @db.Decimal(10,2)
+  fine_date DateTime @default(now())
+  reason String
+  payment_status PaymentStatus @default(Unpaid)
+  payment_date DateTime?
+  payment_method PaymentMethod?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  member Member @relation(fields: [member_id], references: [member_id])
+  borrowing Borrowing? @relation(fields: [borrowing_id], references: [borrowing_id])
+}
+
+enum PaymentStatus {
+  Unpaid
+  Paid
+  Waived
+  Partial
+}
+
+enum PaymentMethod {
+  Cash
+  Card
+  Online
+  Other
+}
+
+model Report {
+  report_id Int @id @default(autoincrement())
+  report_type ReportType
+  generated_date DateTime @default(now())
+  generated_by Int
+  report_data Json?
+  filters_applied String?
+  created_at DateTime @default(now())
+
+  librarian Librarian @relation(fields: [generated_by], references: [librarian_id])
+}
+
+enum ReportType {
+  Borrowing
+  MemberActivity
+  PopularBooks
+  Fines
+  Inventory
+  Custom
+}
+
+model RefreshToken {
+  token_id Int @id @default(autoincrement())
+  user_id Int
+  token String @unique
+  expires DateTime
+  created DateTime @default(now())
+  revoked Boolean @default(false)
+
+  user User @relation(fields: [user_id], references: [user_id])
+}
