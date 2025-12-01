@@ -1,5 +1,3 @@
-// prisma/schema.prisma
-
 generator client {
   provider = "prisma-client-js"
   output   = "../src/generated/prisma"
@@ -11,7 +9,305 @@ datasource db {
 }
 
 model book {
-  book_id Int    @id @default(autoincrement())
-  isbn    String @db.VarChar(13)
+  book_id          Int           @id @default(autoincrement())
+  isbn             String        @unique(map: "isbn") @db.VarChar(13)
+  title            String        @db.VarChar(255)
+  author_id        Int
+  category_id      Int
+  publisher        String?       @db.VarChar(200)
+  publication_year Int?          @db.Year
+  total_copies     Int           @default(1)
+  available_copies Int           @default(1)
+  language         String?       @default("English") @db.VarChar(50)
+  pages            Int?
+  description      String?       @db.Text
+  cover_image      String?       @db.VarChar(500)
+  status           book_status   @default(Available)
+  created_at       DateTime?     @default(now()) @db.Timestamp(0)
+  updated_at       DateTime?     @default(now()) @db.Timestamp(0)
+  author           author        @relation(fields: [author_id], references: [author_id], map: "book_ibfk_1")
+  category         category      @relation(fields: [category_id], references: [category_id], map: "book_ibfk_2")
+  borrowing        borrowing[]
+  reservation      reservation[]
+
+  @@index([author_id], map: "idx_book_author")
+  @@index([category_id], map: "idx_book_category")
+  @@index([isbn], map: "idx_book_isbn")
+  @@index([status], map: "idx_book_status")
+  @@index([title], map: "idx_book_title")
+}
+
+model author {
+  author_id     Int       @id @default(autoincrement())
+  first_name    String    @db.VarChar(100)
+  last_name     String    @db.VarChar(100)
+  biography     String?   @db.Text
+  date_of_birth DateTime? @db.Date
+  nationality   String?   @db.VarChar(100)
+  created_at    DateTime? @default(now()) @db.Timestamp(0)
+  updated_at    DateTime? @default(now()) @db.Timestamp(0)
+  book          book[]
+
+  @@index([last_name, first_name], map: "idx_author_name")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model borrowing {
+  borrowing_id  Int              @id @default(autoincrement())
+  member_id     Int
+  book_id       Int
+  borrow_date   DateTime         @default(dbgenerated("(curdate())")) @db.Date
+  due_date      DateTime         @db.Date
+  return_date   DateTime?        @db.Date
+  status        borrowing_status @default(Borrowed)
+  renewed_count Int              @default(0)
+  librarian_id  Int
+  created_at    DateTime?        @default(now()) @db.Timestamp(0)
+  updated_at    DateTime?        @default(now()) @db.Timestamp(0)
+  member        member           @relation(fields: [member_id], references: [member_id], map: "borrowing_ibfk_1")
+  book          book             @relation(fields: [book_id], references: [book_id], map: "borrowing_ibfk_2")
+  librarian     librarian        @relation(fields: [librarian_id], references: [librarian_id], map: "borrowing_ibfk_3")
+  fine          fine[]
+
+  @@index([book_id], map: "idx_borrowing_book")
+  @@index([borrow_date, return_date], map: "idx_borrowing_dates")
+  @@index([due_date], map: "idx_borrowing_due_date")
+  @@index([member_id], map: "idx_borrowing_member")
+  @@index([status], map: "idx_borrowing_status")
+  @@index([librarian_id], map: "librarian_id")
+}
+
+model category {
+  category_id   Int       @id @default(autoincrement())
+  category_name String    @unique(map: "category_name") @db.VarChar(100)
+  description   String?   @db.Text
+  created_at    DateTime? @default(now()) @db.Timestamp(0)
+  updated_at    DateTime? @default(now()) @db.Timestamp(0)
+  book          book[]
+
+  @@index([category_name], map: "idx_category_name")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model fine {
+  fine_id        Int                 @id @default(autoincrement())
+  member_id      Int
+  borrowing_id   Int?
+  fine_amount    Decimal             @db.Decimal(10, 2)
+  fine_date      DateTime            @default(dbgenerated("(curdate())")) @db.Date
+  payment_status fine_payment_status @default(Unpaid)
+  payment_date   DateTime?           @db.Date
+  created_at     DateTime?           @default(now()) @db.Timestamp(0)
+  updated_at     DateTime?           @default(now()) @db.Timestamp(0)
+  member         member              @relation(fields: [member_id], references: [member_id], map: "fine_ibfk_1")
+  borrowing      borrowing?          @relation(fields: [borrowing_id], references: [borrowing_id], map: "fine_ibfk_2")
+
+  @@index([borrowing_id], map: "borrowing_id")
+  @@index([fine_date], map: "idx_fine_date")
+  @@index([member_id], map: "idx_fine_member")
+  @@index([payment_status], map: "idx_fine_payment_status")
+}
+
+model librarian {
+  librarian_id Int              @id
+  user_id      Int
+  email        String           @db.VarChar(255)
+  first_name   String           @db.VarChar(100)
+  last_name    String           @db.VarChar(100)
+  phone        String?          @db.VarChar(20)
+  role         librarian_role   @default(Librarian)
+  hire_date    DateTime         @default(dbgenerated("(curdate())")) @db.Date
+  status       librarian_status @default(Active)
+  created_at   DateTime?        @default(now()) @db.Timestamp(0)
+  updated_at   DateTime?        @default(now()) @db.Timestamp(0)
+  borrowing    borrowing[]
+  user         user             @relation(fields: [user_id, email], references: [user_id, email], onDelete: Cascade, map: "librarian_ibfk_1")
+  report       report[]
+
+  @@unique([user_id, email], map: "uk_librarian_user")
+  @@index([status], map: "idx_librarian_status")
+}
+
+model library {
+  library_id     Int              @id @default(autoincrement())
+  library_name   String           @db.VarChar(255)
+  tax_number     String?          @unique(map: "tax_number") @db.VarChar(50)
+  library_email  String?          @unique(map: "library_email") @db.VarChar(255)
+  library_phone  String?          @db.VarChar(20)
+  created_at     DateTime?        @default(now()) @db.Timestamp(0)
+  updated_at     DateTime?        @default(now()) @db.Timestamp(0)
+  library_branch library_branch[]
+}
+
+model library_branch {
+  branch_id       Int       @id @default(autoincrement())
+  library_id      Int
+  branch_name     String    @unique(map: "uk_branch_name") @db.VarChar(255)
+  branch_location String    @db.VarChar(255)
+  branch_phone    String?   @db.VarChar(20)
+  created_at      DateTime? @default(now()) @db.Timestamp(0)
+  updated_at      DateTime? @default(now()) @db.Timestamp(0)
+  library         library   @relation(fields: [library_id], references: [library_id], map: "library_branch_ibfk_1")
+
+  @@index([library_id], map: "idx_branch_library")
+}
+
+model member {
+  member_id         Int                    @id @default(autoincrement())
+  user_id           Int
+  email             String                 @db.VarChar(255)
+  first_name        String                 @db.VarChar(100)
+  last_name         String                 @db.VarChar(100)
+  phone             String?                @db.VarChar(20)
+  address           String?                @db.Text
+  date_of_birth     DateTime?              @db.Date
+  registration_date DateTime               @default(dbgenerated("(curdate())")) @db.Date
+  membership_type   member_membership_type @default(Standard)
+  status            member_status          @default(Active)
+  created_at        DateTime?              @default(now()) @db.Timestamp(0)
+  updated_at        DateTime?              @default(now()) @db.Timestamp(0)
+  borrowing         borrowing[]
+  fine              fine[]
+  user              user                   @relation(fields: [user_id, email], references: [user_id, email], onDelete: Cascade, map: "member_ibfk_1")
+  reservation       reservation[]
+
+  @@unique([user_id, email], map: "uk_member_user")
+  @@index([last_name, first_name], map: "idx_member_name")
+  @@index([status], map: "idx_member_status")
+}
+
+model refresh_token {
+  token_id Int       @id
+  user_id  Int
+  email    String    @db.VarChar(255)
+  token    String    @unique(map: "token") @db.VarChar(500)
+  expires  DateTime  @db.DateTime(0)
+  created  DateTime? @default(now()) @db.Timestamp(0)
+  revoked  Boolean?  @default(false)
+  user     user      @relation(fields: [user_id, email], references: [user_id, email], onDelete: Cascade, map: "refresh_token_ibfk_1")
+
+  @@index([token], map: "idx_token")
+  @@index([user_id, email], map: "idx_user_token")
+}
+
+model report {
+  report_id       Int                @id @default(autoincrement())
+  report_type     report_report_type
+  generated_date  DateTime           @default(now()) @db.DateTime(0)
+  generated_by    Int
+  report_data     Json?
+  filters_applied String?            @db.Text
+  created_at      DateTime?          @default(now()) @db.Timestamp(0)
+  librarian       librarian          @relation(fields: [generated_by], references: [librarian_id], map: "report_ibfk_1")
+
+  @@index([generated_by], map: "generated_by")
+  @@index([generated_date], map: "idx_report_date")
+  @@index([report_type], map: "idx_report_type")
+}
+
+model reservation {
+  reservation_id   Int                @id @default(autoincrement())
+  member_id        Int
+  book_id          Int
+  reservation_date DateTime           @default(dbgenerated("(curdate())")) @db.Date
+  expiry_date      DateTime           @db.Date
+  status           reservation_status @default(Active)
+  priority_number  Int                @default(1)
+  created_at       DateTime?          @default(now()) @db.Timestamp(0)
+  updated_at       DateTime?          @default(now()) @db.Timestamp(0)
+  member           member             @relation(fields: [member_id], references: [member_id], onDelete: Cascade, map: "reservation_ibfk_1")
+  book             book               @relation(fields: [book_id], references: [book_id], onDelete: Cascade, map: "reservation_ibfk_2")
+
+  @@index([book_id], map: "idx_reservation_book")
+  @@index([member_id], map: "idx_reservation_member")
+  @@index([book_id, priority_number], map: "idx_reservation_priority")
+  @@index([status], map: "idx_reservation_status")
+}
+
+model user {
+  user_id       Int             @unique(map: "uk_user_id")
+  email         String          @unique(map: "uk_email") @db.VarChar(255)
+  password      String          @db.VarChar(255)
+  fullname      String          @db.VarChar(200)
+  phone         String?         @db.VarChar(20)
+  role          user_role
+  created_at    DateTime?       @default(now()) @db.Timestamp(0)
+  updated_at    DateTime?       @default(now()) @db.Timestamp(0)
+  librarian     librarian?
+  member        member?
+  refresh_token refresh_token[]
+
+  @@id([user_id, email])
+  @@index([email], map: "idx_user_email")
+  @@index([role], map: "idx_user_role")
+}
+
+enum report_report_type {
+  Borrowing
+  Member_Activity @map("Member Activity")
+  Popular_Books   @map("Popular Books")
+  Fines
+  Inventory
+  Custom
+}
+
+enum fine_payment_status {
+  Unpaid
+  Paid
+  Waived
+  Partial
+}
+
+enum reservation_status {
+  Active
+  Fulfilled
+  Cancelled
+  Expired
+}
+
+enum user_role {
+  Member
+  Librarian
+  Admin
+}
+
+enum borrowing_status {
+  Borrowed
+  Returned
+  Overdue
+  Lost
+}
+
+enum librarian_role {
+  Admin
+  Librarian
+  Assistant
+}
+
+enum librarian_status {
+  Active
+  Inactive
+  On_Leave @map("On Leave")
+}
+
+enum member_membership_type {
+  Standard
+  Premium
+  Student
+  Senior
+}
+
+enum member_status {
+  Active
+  Inactive
+  Suspended
+  Expired
+}
+
+enum book_status {
+  Available
+  Unavailable
+  Damaged
+  Lost
   // ...
 }
