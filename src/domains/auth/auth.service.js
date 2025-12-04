@@ -77,8 +77,26 @@ const login = async (email, password) => {
     refreshToken
   };
 };
+const changeUserRole = async (userId, newRole) => {
+    const validRoles = ['Admin', 'Librarian', 'Member'];
+    if (!validRoles.includes(newRole)) {
+        throw new Error('Invalid role specified.');
+    }
+
+    const updatedUser = await authRepository.updateUserRole(userId, newRole);
+
+
+    return updatedUser;
+};
+
+const retrieveAllUsers = async () => {
+  return await authRepository.getAllUsers();
+};
+
 
 module.exports = {
   register,
-  login 
+  login ,
+  changeUserRole,
+  retrieveAllUsers,
 };

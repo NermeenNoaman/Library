@@ -29,4 +29,15 @@ router.get('/profile',
   (req, res) => res.json({ message: "Hello Member! Here is your profile.", user: req.user })
 );
 
+router.get('/users/all',
+  verifyToken, 
+  authorize(['Admin']), 
+  authController.retrieveAllUsers
+);
+router.patch('/user/:id/role',
+  verifyToken, 
+  authorize(['Admin']), 
+  authController.changeUserRole
+);
+
 module.exports = router;

@@ -1,27 +1,19 @@
-// src/domains/auth/auth.repository.js
+
 const prisma = require('../../core/utils/prisma');
 
 const createMemberTransaction = async (userData, memberData) => {
   return await prisma.$transaction(async (tx) => {
-    
-    // ---------------------------------------------------------
-    // 1. خطوة إضافية: حساب الـ ID يدوياً (Manual ID Generation)
-    // ---------------------------------------------------------
-    // نبحث عن أكبر ID موجود حالياً في جدول User
+ 
     const maxIdResult = await tx.user.aggregate({
       _max: { user_id: true }
     });
     
-    // الرقم الجديد = أكبر رقم موجود + 1
-    // (لو الجدول فاضي، نبدأ برقم 1)
+   
     const nextId = (maxIdResult._max.user_id || 0) + 1;
 
-    // ---------------------------------------------------------
-    // 2. إنشاء المستخدم بالـ ID الذي حسبناه
-    // ---------------------------------------------------------
     const newUser = await tx.user.create({
       data: {
-        user_id: nextId, // <--- هنا وضعنا الرقم اليدوي
+        user_id: nextId, 
         email: userData.email,
         password: userData.password,
         role: 'Member',
@@ -30,9 +22,6 @@ const createMemberTransaction = async (userData, memberData) => {
       }
     });
 
-    // ---------------------------------------------------------
-    // 3. إنشاء العضو (Member)
-    // ---------------------------------------------------------
     const newMember = await tx.member.create({
       data: {
         user_id: newUser.user_id,
@@ -74,10 +63,31 @@ const saveRefreshToken = async (userId, token, expiresAt) => {
     }
   });
 };
+const updateUserRole = async (userId, newRole) => {
+  return await prisma.user.update({
+    where: { user_id: userId }, 
+    data: { role: newRole },
+    select: { user_id: true, email: true, role: true, fullname: true }
+  });
+};
 
+const getAllUsers = async () => {
+  return await prisma.user.findMany({
+   
+    select: {
+      user_id: true,
+      email: true,
+      fullname: true,
+      role: true,
+      created_at: true,
+    },
+  });
+};
 
 module.exports = {
   createMemberTransaction,
   findUserByEmail,
-  saveRefreshToken, 
+  saveRefreshToken,
+  updateUserRole, 
+  getAllUsers,
 };
